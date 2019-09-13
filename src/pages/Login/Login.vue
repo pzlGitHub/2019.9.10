@@ -5,40 +5,51 @@
       <div class="login_header">
         <h2 class="login_logo">硅谷外卖</h2>
         <div class="login_header_title">
-          <a href="javascript:;" class="on">短信登录</a>
-          <a href="javascript:;">密码登录</a>
+          <a href="javascript:;" :class="{on: loginWay}" @click="loginWay=true">短信登录</a>
+          <a href="javascript:;" :class="{on: !loginWay}" @click="loginWay=false">密码登录</a>
         </div>
       </div>
       <div class="login_content">
-        <form>
-          <div class="on">
+        <!-- 按下任意按钮都不要提交表单刷新页面 阻止默认事件 -->
+        <form @submit.prevent="login">
+          <div :class="{on: loginWay}">
             <section class="login_message">
-              <input type="tel" maxlength="11" placeholder="手机号" />
-              <button disabled="disabled" class="get_verification">获取验证码</button>
+              <input type="tel" maxlength="11" placeholder="手机号" v-model="phone" />
+              <!-- 点击是否能点击看disabled  阻止默认事件prevent -->
+              <button
+                :disabled="!rightPhone"
+                class="get_verification"
+                :class="{right_phone: rightPhone}"
+                @click.prevent="getCode"
+              >{{computeTime>0 ? `已发送${computeTime}s` : '获取验证码'}}</button>
             </section>
             <section class="login_verification">
-              <input type="tel" maxlength="8" placeholder="验证码" />
+              <input type="tel" maxlength="6" placeholder="验证码" v-model="code"/>
             </section>
             <section class="login_hint">
               温馨提示：未注册硅谷外卖帐号的手机号，登录时将自动注册，且代表已同意
               <a href="javascript:;">《用户服务协议》</a>
             </section>
           </div>
-          <div>
+          <div :class="{on: !loginWay}">
             <section>
               <section class="login_message">
-                <input type="tel" maxlength="11" placeholder="手机/邮箱/用户名" />
+                <input type="text" maxlength="11" placeholder="手机/邮箱/用户名" v-model="name"/>
               </section>
               <section class="login_verification">
-                <input type="tel" maxlength="8" placeholder="密码" />
-                <div class="switch_button off">
-                  <div class="switch_circle"></div>
-                  <span class="switch_text">...</span>
+                <input type="text" maxlength="8" placeholder="密码" v-if="showPwd" v-model="pwd" />
+                <input type="password" maxlength="8" placeholder="密码" v-else v-model="pwd" />
+                <!-- 是否展示密码的按钮 -->
+                <div class="switch_button off" :class="showPwd?'on':'off'" @click="showPwd=!showPwd">
+                  <div class="switch_circle" :class="{right: showPwd}"></div>
+                  <span class="switch_text">{{showPwd?'展示':'隐藏'}}</span>
                 </div>
               </section>
               <section class="login_message">
-                <input type="text" maxlength="11" placeholder="验证码" />
-                <img class="get_verification" src="./images/captcha.svg" alt="captcha" />
+                <input type="text" maxlength="11" placeholder="验证码" v-model="captcha" />
+                <img class="get_verification" src="http://guigu_zhipinjiekou.gjxbewater.cn:8080/captcha" alt="captcha"
+                  @click="getCaptcha" ref="captcha"
+                />
               </section>
             </section>
           </div>
@@ -46,15 +57,162 @@
         </form>
         <a href="javascript:;" class="about_us">关于我们</a>
       </div>
-      <a href="javascript:" class="go_back" @click="$router.back()">
+      <a href="javascript:" class="go_back" @click="$router.replace('/msite')">
         <i class="iconfont icon-jiantou-copy"></i>
       </a>
     </div>
+    <!-- 提示框 -->
+    <AlertTip :alertText="alertText" v-show="alertShow" @closeTip="closeTip"/>
   </section>
 </template>
 
 <script>
-export default {};
+import AlertTip from '../../components/AlertTip/AlertTip.vue'
+// 引用ajax请求函数  验证码 短信登录  密码登录
+import {reqSendCode, reqSmsLogin, reqPwdLogin} from '../../api'
+
+export default {
+  data () {
+    return {
+      loginWay: true, // true代表短信登录，false代表密码登录
+      phone: '', // 手机号
+      computeTime: 0, // 计时的时间
+      showPwd: false, // 是否显示密码
+      name: '',
+      pwd: '', // 密码
+      code: '', // 短信验证码
+      captcha: '', // 图形验证码
+      alertText: '', // 提示文本
+      alertShow: false // 提示框的显示隐藏条件
+
+    }
+  },
+  // 定义方法
+  methods: {
+    // 异步获取短信验证码
+    async getCode () {
+      // 如果没有计时
+      if (!this.computeTime) {
+        // 启动倒计时
+        // alert("------");
+        this.computeTime = 30
+        // 定时器
+        this.IntervalId = setInterval(() => {
+          this.computeTime--
+          if (this.computeTime <= 0) {
+            // 停止定时器
+            clearInterval(this.IntervalId)
+          }
+        }, 1000)
+
+        // 发送ajax请求，向指定的手机号发送验证码  别人的后台，无法获取短信验证码
+        const result = await reqSendCode(this.phone)
+        // 判断是否失败
+        if (result.code === 1) {
+          // 显示警告框
+          this.showAlert(result.msg)
+          // 停止倒计时
+          if (this.computeTime) {
+            this.computeTime = 0
+            clearInterval(this.IntervalId)
+            this.IntervalId = undefined
+          }
+        }
+      }
+    },
+    // 警告框  提取代码，减少耦合度
+    showAlert (alertText) {
+      this.alertShow = true
+      this.alertText = alertText
+    },
+    // 异步登录
+    async login () {
+      let result
+      // 前端的表单验证
+      if (this.loginWay) { // 短信登录
+        const {phone, code} = this
+        if (!this.rightPhone) {
+          // 手机号码不正确
+          this.showAlert('手机号码不正确')
+          return
+        } else if (!/^\d{6}$/.test(code)) {
+          // 验证码必须是6位的数字
+          this.showAlert('验证码必须是6位的数字')
+          return
+        }
+        // 发送ajax请求，短信登录
+        result = await reqSmsLogin(phone, code)
+      } else { // 密码登录
+        const {name, pwd, captcha} = this
+        if (!this.name) {
+          // 必须指定用户名
+          this.showAlert('必须指定用户名')
+          return
+        } else if (!this.pwd) {
+          // 必须填写密码
+          this.showAlert('必须填写密码')
+          return
+        } else if (!this.captcha) {
+          // 必须填写验证码
+          this.showAlert('必须填写验证码')
+          return
+        }
+        // 发送ajax请求，密码登录
+        result = await reqPwdLogin({name, pwd, captcha})
+      }
+      // 停止倒计时
+      if (this.computeTime) {
+        this.computeTime = 0
+        clearInterval(this.IntervalId)
+        this.IntervalId = undefined
+      }
+      // 根据结果数据result进行处理  拿不到这个手机号的数据，自己模拟
+      if (result.code === 1) {
+        result = {
+          data: {
+            _id: 1000,
+            name: this.name,
+            phone: this.phone
+          }
+        }
+        const user = result.data
+        // 将user保存到veux的state存储起来方便其他组件使用这个数据
+        this.$store.dispatch('recordUser', user)
+        // 去个人中心
+        this.$router.replace('/profile')
+      } else {
+        // 显示新的一次性验证码 和 清除内容
+        this.getCaptcha()
+        this.captcha = ''
+        // 显示警告框
+        const msg = result.msg
+        this.showAlert(msg)
+      }
+    },
+    // 关闭警告框
+    closeTip () {
+      this.alertShow = false
+      this.alertText = ''
+    },
+    // 获取一个新的图片验证码
+    getCaptcha () {
+      // 获取img标签重新给src赋值，路径要有变化才能触发请求
+      // 解决方法，在信息的后面加上时间
+      this.$refs.captcha.src = 'http://guigu_zhipinjiekou.gjxbewater.cn:8080/captcha?time=' + Date.now()
+    }
+  },
+  // 计算属性
+  computed: {
+    // 这个布尔值变量是根据phone才能决定的因此用计算属性解决这个问题
+    rightPhone () {
+      // 开头为1以10个数字结尾 匹配 手机号 那么就是合法的手机号
+      return /^1\d{10}$/.test(this.phone)
+    }
+  },
+  components: {
+    AlertTip
+  }
+}
 </script>
 
 <style lang="stylus" rel="stylesheet/stylus">
@@ -140,6 +298,10 @@ export default {};
               color: #ccc;
               font-size: 14px;
               background: transparent;
+
+              &.right_phone {
+                color: black;
+              }
             }
           }
 
@@ -190,6 +352,9 @@ export default {};
                 background: #fff;
                 box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
                 transition: transform 0.3s;
+                &.right{
+                  transform: translateX(30px)
+                }
               }
             }
           }

@@ -1,5 +1,5 @@
 <template>
-  <section class="order"> 
+  <section class="order">
     <HeaderTop title="订单列表" />
     <section class="order_no_login">
       <img src="./images/person.png" />
@@ -16,7 +16,7 @@ export default {
   components: {
     HeaderTop
   }
-};
+}
 </script>
 
 <style lang="stylus" rel="stylesheet/stylus">

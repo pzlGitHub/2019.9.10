@@ -2,17 +2,20 @@
   <section class="profile">
     <HeaderTop title="我的" />
     <section class="profile-number">
-      <router-link to="/login" class="profile-link">
+      <!-- 根据是否登录，指定地址跳转的 -->
+      <router-link :to="userInfo._id ? '/userInfo' : '/login'" class="profile-link">
       <div class="profile_image">
           <i class="iconfont icon-geren2"></i>
         </div>
         <div class="user-info">
-          <p class="user-info-top">登录/注册</p>
+          <!-- 手机号登录就不展示 -->
+          <p class="user-info-top" v-if="!userInfo.phone">{{ userInfo.name || '登录/注册' }}</p>
           <p>
             <span class="user-icon">
               <i class="iconfont icon-shouji icon-phone"></i>
             </span>
-            <span class="icon-mobile-number">暂无绑定手机号</span>
+            <!-- 用户名登录，就显示暂无绑定手机号的文字 -->
+            <span class="icon-mobile-number">{{userInfo.phone || '暂无绑定手机号'}}</span>
           </p>
         </div>
         <span class="arrow">
@@ -95,13 +98,39 @@
         </div>
       </a>
     </section>
+    <section class="profile_my_order border-1px">
+      <mt-button style="width: 100%" type="danger" @click="logout" v-if="userInfo._id">退出登陆</mt-button>
+    </section>
+
   </section>
 </template>
 
 <script>
+import {mapState} from 'vuex'
+import {MessageBox, Toast } from 'mint-ui'
 import HeaderTop from '../../components/HeaderTop/HeaderTop.vue'
 
 export default {
+  // 读取vuex数据 获取用户信息进行展示
+  computed: {
+    ...mapState(['userInfo'])
+  },
+  methods: {
+    logout () {
+      // 退出提示框
+      MessageBox.confirm('确认退出吗？').then(
+        action => {
+          // 请求退出
+          this.$store.dispatch('logout')
+          // 提示效果
+          Toast('登出完成')
+        },
+        action => {
+          console.log('点击了取消退出按钮')
+        }
+      )
+    }
+  },
   components: {
     HeaderTop
   }
@@ -209,7 +238,7 @@ export default {
             display: inline-block;
             margin-left: -15px;
             margin-right: 5px;
-            width: 20px;
+            width: 6px;
             height: 20px;
 
             .icon-mobile {

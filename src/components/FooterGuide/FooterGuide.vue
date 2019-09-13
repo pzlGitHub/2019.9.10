@@ -31,13 +31,13 @@
 
 <script>
 export default {
-    methods: {
-        goTo(path) {
-            // 点击跳转路由
-            this.$router.replace(path);
-        }
+  methods: {
+    goTo (path) {
+      // 点击跳转路由
+      this.$router.replace(path)
     }
-};
+  }
+}
 </script>
 
 <style lang="stylus" rel="stylesheet/stylus">

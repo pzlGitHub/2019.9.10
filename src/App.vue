@@ -8,12 +8,28 @@
 </template>
 
 <script>
+// 引入映射函数  读取出来
+import {mapActions} from 'vuex'
 import FooterGuide from './components/FooterGuide/FooterGuide.vue'
+
 export default {
-    name: 'app',
-    components: {
-        FooterGuide
-    }
+  // 触发 请求获取数据的方法  actions.js
+  mounted () {
+    // 直接发送请求
+    // this.$store.dispatch('gettAddress');
+    // 调用声明的方法发送请求
+    this.getAddress()
+    // 获取用户信息自动登录  未能拿到接口数据
+    // this.getUserInfo()
+  },
+  methods: {
+    // 都在这个里面使用vuex的映射函数  得到计算属性gettAddress
+    ...mapActions(['getAddress', 'getUserInfo'])
+
+  },
+  components: {
+    FooterGuide
+  }
 }
 </script>
 
